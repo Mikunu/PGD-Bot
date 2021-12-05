@@ -4,7 +4,6 @@ import discord
 import os
 import sqlite3
 from discord.ext import commands
-from config import settings
 
 
 intents = discord.Intents.default()
