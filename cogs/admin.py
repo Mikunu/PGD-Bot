@@ -3,7 +3,7 @@ from discord.ext import commands
 from bot import cursor, conn
 
 
-class Admin(commands.Cog):
+class Admin(commands.Cog, description='Админские команды'):
 
     def __init__(self, client):
         self.client = client
@@ -25,7 +25,7 @@ class Admin(commands.Cog):
                           (author_name text, author_id integer, channel_name text, channel_id integer)
                        """)
         conn.commit()
-        await ctx.send('Done')
+        await ctx.reply('Done')
 
     @commands.command(name='update-projects', help='Недоступная для всех временная команда')
     @commands.has_role('Админ')

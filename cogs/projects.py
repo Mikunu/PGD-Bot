@@ -26,7 +26,7 @@ def check_if_user_has_projects(member: discord.Member):
         return False
 
 
-class Projects(commands.Cog):
+class Projects(commands.Cog, description='Команды девлогов'):
 
     def __init__(self, client):
         self.client = client
