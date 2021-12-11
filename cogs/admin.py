@@ -1,7 +1,7 @@
 import discord
 from discord.ext import commands
 from bot import cursor, conn
-
+import csv
 
 class Admin(commands.Cog, description='Админские команды'):
 
@@ -40,6 +40,16 @@ class Admin(commands.Cog, description='Админские команды'):
             await channel.set_permissions(member, overwrite=None)
         await ctx.reply('Done')
 
+    @commands.command(name='gather-db')
+    @commands.has_role('Админ')
+    async def gather_db(self, ctx):
+        cursor.execute('SELECT author_id, channel_id FROM projectChannels')
+        project_data = cursor.fetchall()
+        with open('output.csv', 'w', encoding='utf-8') as file:
+            writer = csv.writer(file)
+            writer.writerows(project_data)
+        file = discord.File('output.csv')
+        await ctx.send(file=file)
 
 def setup(client):
     client.add_cog(Admin(client))
