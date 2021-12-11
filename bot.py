@@ -15,6 +15,10 @@ client = commands.Bot(command_prefix=os.environ['PREFIX'], intents=intents)
 conn = sqlite3.connect("pgd.db")
 cursor = conn.cursor()
 
+for filename in os.listdir('./cogs'):
+    if filename.endswith('.py'):
+        client.load_extension(f'cogs.{filename[:-3]}')
+
 
 @client.command(brief='Загружает модуль')
 @commands.has_role('Админ')
@@ -56,11 +60,6 @@ async def bug(ctx, *, arg):
     if response.status_code != 200:
         mikunu_msg += f'\nResponse error: {response}'
     await mikunu.send(mikunu_msg)
-
-
-for filename in os.listdir('./cogs'):
-    if filename.endswith('.py'):
-        client.load_extension(f'cogs.{filename[:-3]}')
 
 
 class HelpEmbed(discord.Embed):  # Our embed with some preset attributes to avoid setting it multiple times
