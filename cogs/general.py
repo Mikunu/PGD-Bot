@@ -12,11 +12,12 @@ class General(commands.Cog):
         if isinstance(error, commands.MissingRequiredArgument):
             await ctx.reply(f'Missing arguments.\n{error}', delete_after=3)
         elif isinstance(error, commands.CommandNotFound):
-            pass
+            raise error
         else:
             await ctx.reply(error, delete_after=3)
         await ctx.message.delete()
         raise error
 
+    
 def setup(client):
     client.add_cog(General(client))
