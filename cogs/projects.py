@@ -59,6 +59,9 @@ class Projects(commands.Cog, description='Команды девлогов'):
         await channel.set_permissions(member, overwrite=perms)
         await ctx.send(f'{member.name}, {channel.mention} в категории "{category}" создан')
 
+        welcome_msg = open('welcome_msg.txt', 'r', encoding='utf-8').read()
+        await channel.send(f'Привет, {member.mention} .' + welcome_msg)
+
         member_fullname = f'{member.name}#{member.discriminator}'
         data_to_add = (member_fullname, member.id, channel.name, channel.id)
         cursor.execute("""INSERT INTO projectChannels
