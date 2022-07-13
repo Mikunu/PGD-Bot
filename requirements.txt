@@ -1,2 +1,5 @@
 discord==1.7.3
 requests==2.26.0
+
+trello~=0.9.7.3
+SQLAlchemy~=1.4.39

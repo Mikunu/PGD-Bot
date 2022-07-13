@@ -1,26 +1,14 @@
 from typing import Any
-
+import datetime
 import discord
+from time import mktime
 from discord.ext import commands
-
-from bot import cursor, conn
-
-
-def get_data_for_projects(ctx: discord.ext.commands.Context):
-    channel_id = ctx.channel.id
-    cursor.execute("""select * from projectChannels where channel_id = ?""", (channel_id,))
-    return cursor.fetchone()
+from bot import sql_worker, client
 
 
 def check_if_user_has_projects(member: discord.Member):
-    sqlite_select_query = """SELECT author_id from projectChannels"""
-    cursor.execute(sqlite_select_query)
-    authors = cursor.fetchall()
-    members = []
-    for author in authors:
-        members.append(author[0])
-
-    if member.id in members:
+    user = sql_worker.get_devlog_by_user(user_id=member.id)
+    if user is not None:
         return True
     else:
         return False
@@ -32,7 +20,6 @@ def grant_channel_roles(member: discord.Member, channel: discord.TextChannel):
     perms.manage_emojis = True
     perms.manage_messages = True
     return perms
-
 
 
 class Projects(commands.Cog, description='Команды девлогов'):
@@ -47,55 +34,56 @@ class Projects(commands.Cog, description='Команды девлогов'):
     async def create_project(self, ctx: discord.ext.commands.Context, member: discord.Member):
         if member is None:
             return
+
         if check_if_user_has_projects(member):
+            await ctx.reply(f'{member.mention} уже имеет проект')
             await self.check_member_projects(ctx, member)
             return
 
         channel_name = f'проект {member.name}'
         category = discord.utils.get(ctx.guild.channels, id=715126363748827136)
         topic = 'Канал разработки'
+
         channel: discord.TextChannel = await ctx.guild.create_text_channel(channel_name, category=category, topic=topic)
         perms = grant_channel_roles(member, channel)
         await channel.set_permissions(member, overwrite=perms)
-        await ctx.send(f'{member.name}, {channel.mention} в категории "{category}" создан')
+        result = sql_worker.add_devlog(channel_id=channel.id, user_id=member.id)
 
-        member_fullname = f'{member.name}#{member.discriminator}'
-        data_to_add = (member_fullname, member.id, channel.name, channel.id)
-        cursor.execute("""INSERT INTO projectChannels
-                          VALUES (?, ?, ?, ?)""", data_to_add)
-        conn.commit()
+        if result is None:
+            await ctx.reply(f'Что-то произошло не так, свяжитесь с <@302734324648902657>.\n'
+                            f'[INFO] Channel: {channel.id}, {channel.name}')
+            return
+
+        if sql_worker.get_author(member.id) is None:
+            sql_worker.add_author(member.id)
+        else:
+            sql_worker.increase_devlog_amount(member.id)
+
+        await ctx.reply(f'{member.mention}, {channel.mention} в категории "{category}" создан.\n'
+                        f'Уникальный идентификатор девлога: {sql_worker.get_devlog_by_channel(channel.id).devlog_id}')
+
+        with open('resources/devlog_welcome_message.txt', encoding='utf-8') as f:
+            welcome_txt = f.read()
+        await channel.send(f'Привет, {member.mention}.')
+        for text in welcome_txt.split('\n\n'):
+            await channel.send(text)
 
     @commands.command(name='delete-project',
                       help='delete-project | Удаляет канал разработки, в котором команда написана',
                       brief='Удаляет канал разработки в котором команда написана')
     @commands.has_any_role('Админ', 'Модератор')
     async def delete_project(self, ctx: discord.ext.commands.Context):
-        project_data = get_data_for_projects(ctx)
-        if project_data is None:
-            await ctx.reply(f'project data is None', delete_after=3)
+        devlog = sql_worker.get_devlog_by_channel(ctx.channel.id)
+        if devlog is None:
+            await ctx.reply(f'Данного проекта нет в базе данных', delete_after=5)
             await ctx.message.delete()
             return
 
-        message = f'Канал разработки {project_data[2]} от <@{project_data[1]}> был удалён {ctx.author.mention}'
-        await discord.utils.get(ctx.guild.channels, id=759775534136819722).send(message)  # аудит
-        sql_delete_query = """DELETE from projectChannels where channel_id = ?"""
-        cursor.execute(sql_delete_query, (project_data[3],))
-        conn.commit()
-        await ctx.channel.delete()
-
-    @commands.command(name='users-projects',
-                      help='Недоступная для всех временная команда',
-                      brief='Недоступная для всех временная команда')
-    @commands.has_any_role('Админ')
-    async def users_projects(self, ctx: discord.ext.commands.Context):
-        sqlite_select_query = """SELECT author_id from projectChannels"""
-        cursor.execute(sqlite_select_query)
-        authors = cursor.fetchall()
-        members = []
-        for author in authors:
-            members.append(ctx.guild.get_member(author[0]))
-        for member in members:
-            print(member)
+        sql_worker.delete_devlog(devlog)
+        message = f'Канал разработки {client.get_channel(devlog.channel_id).name} от ' \
+                  f'{client.get_user(devlog.user_id).mention} был удалён {ctx.author.mention}'
+        # await discord.utils.get(ctx.guild.channels, id=759775534136819722).send(message)  # аудит
+        await client.get_channel(devlog.channel_id).delete()
 
     @commands.command(name='check-member-projects',
                       help='check-member-projects @user | Вывести проект пользователя',
@@ -103,13 +91,18 @@ class Projects(commands.Cog, description='Команды девлогов'):
     @commands.has_any_role('Админ', 'Модератор')
     async def check_member_projects(self, ctx: discord.ext.commands.Context, member: discord.Member):
         if check_if_user_has_projects(member):
-            sqlite_select_query = """SELECT * from projectChannels where author_id = ?"""
-            cursor.execute(sqlite_select_query, (member.id, ))
-            print(cursor.description)
-            project_data = cursor.fetchone()
-            print(project_data)
-            await ctx.reply(f'{member.mention} уже имеет проект.\nДанные проекта:\n'
-                            f'Владелец: <@{project_data[1]}>\nПроект: <#{project_data[3]}>')
+
+            devlog = sql_worker.get_devlog_by_user(member.id)
+            user: discord.Member = client.get_user(devlog.user_id)
+            channel: discord.TextChannel = client.get_channel(devlog.channel_id)
+            embed: discord.Embed = discord.Embed(image=user.avatar_url)
+            embed.add_field(name=f'Владелец:', value=user.mention)
+            embed.add_field(name=f'Проект:', value=channel.mention)
+            embed.add_field(
+                name=f'В архиве:',
+                value=f'{f"C <t:{round(mktime(devlog.archived_date.timetuple()))}:f>" if devlog.archived else "Нет"}')
+
+            await ctx.reply(embed=embed)
         else:
             await ctx.reply(f'{member.mention} не имеет проекта')
 
@@ -118,40 +111,45 @@ class Projects(commands.Cog, description='Команды девлогов'):
                            '| Переименовывает канал разработки',
                       brief='Переименовывает канал')
     async def rename_project(self, ctx: discord.ext.commands.Context, new_name: str):
-        project_data = get_data_for_projects(ctx)
-        if ctx.author.id == project_data[1]:
+        devlog = sql_worker.get_devlog_by_channel(ctx.channel.id)
+        if ctx.author.id == devlog.devlog_id:
             await ctx.channel.edit(name=new_name)
-            sql_update_query = """Update projectChannels set channel_name = ? where channel_id = ?"""
-            data = (new_name, project_data[3])
-            cursor.execute(sql_update_query, data)
-            conn.commit()
-            await ctx.reply(f'<@{project_data[1]}>, ваш канал был переименован в: {new_name}')
+            await ctx.reply(f'{ctx.author.mention}, ваш канал был переименован в: {new_name}', delete_after=7)
         else:
-            await ctx.reply(f'{ctx.author.mention}, вы не создатель канала!', delete_after=3)
-            await ctx.message.delete()
+            await ctx.reply(f'{ctx.author.mention}, вы не создатель канала!', delete_after=7)
+        await ctx.message.delete()
 
     @commands.command(name='update-topic', rest_is_raw=True,
                       help='update-topic описание или update-topic "описание с пробелами" '
                            '| Изменить описание канала разработки',
                       brief='Изменить описание канала разработки')
     async def update_topic(self, ctx: discord.ext.commands.Context, new_topic: str):
-        project_data = get_data_for_projects(ctx)
-        if ctx.author.id == project_data[1]:
+        devlog = sql_worker.get_devlog_by_channel(ctx.channel.id)
+        if ctx.author.id == devlog.devlog_id:
             await ctx.channel.edit(topic=new_topic)
-            await ctx.reply(f'<@{project_data[1]}>, описание изменено: {new_topic}')
+            await ctx.reply(f'<@{ctx.author.mention}>, описание изменено: {new_topic}', delete_after=7)
+            await ctx.message.delete()
         else:
-            await ctx.reply(f'{ctx.author.mention}, вы не создатель канала!', delete_after=3)
+            await ctx.reply(f'{ctx.author.mention}, вы не создатель канала!', delete_after=7)
             await ctx.message.delete()
 
     @commands.command(name='archive',
                       help='archive | Перенести канал разрабокти в архив',
                       brief='Перенести канал разработки в архив')
     async def archivize(self, ctx: discord.ext.commands.Context):
-        project_data = get_data_for_projects(ctx)
+        devlog = sql_worker.get_devlog_by_channel(ctx.channel.id)
         category = discord.utils.get(ctx.guild.channels, id=719540678673170524)
-        if ctx.author.id == project_data[1]:
+        role_admin = ctx.guild.get_role(role_id=712188168199209012)
+        role_moder = ctx.guild.get_role(role_id=712189049422741565)
+
+        is_author_has_perms = True if role_admin in ctx.author.roles else \
+            True if role_moder in ctx.author.roles else False
+
+        if ctx.author.id == devlog.user_id or is_author_has_perms:
+            data_for_update = {'user_id': devlog.user_id, 'archived': True, 'archived_date': datetime.datetime.now()}
+            sql_worker.update_devlog(devlog.channel_id, data_for_update)
             await ctx.channel.edit(category=category)
-            await ctx.reply(f'<@{project_data[1]}>, канал заархивирован')
+            await ctx.reply(f'{client.get_channel(devlog.channel_id)}, канал заархивирован')
         else:
             await ctx.reply(f'{ctx.author.mention}, вы не создатель канала!', delete_after=3)
             await ctx.message.delete()
@@ -161,8 +159,8 @@ class Projects(commands.Cog, description='Команды девлогов'):
                            '| Удаляет сообщение(я)',
                       brief='Удаляет сообщение(я)')
     async def delete_message(self, ctx: discord.ext.commands.Context, limit: int = None):
-        project_data = get_data_for_projects(ctx)
-        if ctx.author.id == project_data[1]:
+        devlog = sql_worker.get_devlog_by_channel(ctx.channel.id)
+        if ctx.author.id == devlog.devlog_id:
             if ctx.message.reference:
                 original = await ctx.fetch_message(id=ctx.message.reference.message_id)
                 await original.delete()
@@ -190,59 +188,30 @@ class Projects(commands.Cog, description='Команды девлогов'):
                       brief='Присваивает канал разработки пользователю')
     @commands.has_any_role('Админ', 'Модератор')
     async def assign(self, ctx: discord.ext.commands.Context, member: discord.Member):
-        project_data = get_data_for_projects(ctx)
-        if project_data is not None:
-            await ctx.reply(f'Данная комната уже закреплена за {project_data[0]}')
+        if check_if_user_has_projects(member):
+            await ctx.reply(f'{member.mention} уже имеет проект')
+            await self.check_member_projects(ctx, member)
             return
 
-        channel: discord.TextChannel = ctx.channel
-        perms = grant_channel_roles(member, channel)
-        await channel.set_permissions(member, overwrite=perms)
+        devlog = sql_worker.add_devlog(channel_id=ctx.channel.id, user_id=member.id)
 
-        member_fullname = f'{member.name}#{member.discriminator}'
-        data_to_add = (member_fullname, member.id, channel.name, channel.id)
-        cursor.execute("""INSERT INTO projectChannels
-                          VALUES (?, ?, ?, ?)""", data_to_add)
-        conn.commit()
-        project_data = get_data_for_projects(ctx)
-        await ctx.reply(f'Канал <#{project_data[3]}> закреплён за <@{project_data[1]}>')
-
-    @commands.command(name='unassign',
-                      help='unassign | Открепляет комнату от пользователя',
-                      brief='Открепляет комнату от пользователя')
-    @commands.has_any_role('Админ', 'Модератор')
-    async def unassign(self, ctx: discord.ext.commands.Context):
-        project_data = get_data_for_projects(ctx)
-        if project_data is None:
-            await ctx.reply(f'Данная комната ни за кем не закреплена')
+        if devlog is None:
+            await ctx.reply(f'Что-то произошло не так, свяжитесь с <@302734324648902657>.\n'
+                            f'[INFO] Channel: {ctx.channel.id}, {ctx.channel.name}')
             return
-        member: discord.Member = ctx.guild.get_member(project_data[0])
-        await ctx.channel.set_permissions(member, overwrite=None)
-        sql_delete_query = """DELETE from projectChannels where channel_id = ?"""
-        cursor.execute(sql_delete_query, (project_data[3],))
-        conn.commit()
-        await ctx.reply(f'Канал <#{project_data[3]}> больше не закреплён за <@{project_data[1]}>')
 
-    @commands.command(name='projects-update-perms')
-    @commands.has_any_role('Админ')
-    async def projets_update_perms(self, ctx: discord.ext.commands.Context):
-        projects_data = cursor.execute('SELECT author_id, channel_id from projectChannels').fetchall()
-        users_updated = len(projects_data)
-        for project_data in projects_data:
-            try:
-                member: discord.User = ctx.guild.get_member(project_data[0])
-                channel: discord.TextChannel = ctx.guild.get_channel(project_data[1])
-                perms = grant_channel_roles(member, channel)
-                await channel.set_permissions(member, overwrite=perms)
-            except Exception as e:
-                users_updated -= 1
-        role: discord.Role = discord.utils.get(ctx.guild.roles, id=917023053890859039)
-        await ctx.reply(f'{users_updated} из {len(role.members)} пользователей обновлено')
+        if sql_worker.get_author(member.id) is None:
+            sql_worker.add_author(member.id)
+        else:
+            sql_worker.increase_devlog_amount(member.id)
+        await ctx.reply(f'Канал {client.get_channel(devlog.channel_id).mention} закреплён '
+                        f'за {client.get_user(devlog.user_id).mention}', delete_after=7)
+        await ctx.message.delete()
 
     @commands.command(name='projects-remove2fa')
     async def projects_remove2fa(self, ctx: discord.ext.commands.Context):
-        project_data = get_data_for_projects(ctx)
-        if ctx.author.id == project_data[1]:
+        devlog = sql_worker.get_devlog_by_channel(ctx.channel.id)
+        if ctx.author.id == devlog.devlog_id:
             await ctx.channel.set_permissions(ctx.author, overwrite=None)
             await ctx.reply(f'{ctx.author.mention}, '
                             f'ваши права обновлены, теперь для модерации канала пользуйтесь ботом')
@@ -252,8 +221,8 @@ class Projects(commands.Cog, description='Команды девлогов'):
 
     @commands.command(name='projects-get2fa')
     async def projects_get2fa(self, ctx: discord.ext.commands.Context):
-        project_data = get_data_for_projects(ctx)
-        if ctx.author.id == project_data[1]:
+        devlog = sql_worker.get_devlog_by_channel(ctx.channel.id)
+        if ctx.author.id == devlog.devlog_id:
             perms = grant_channel_roles(ctx.author, ctx.channel)
             await ctx.channel.set_permissions(ctx.author, overwrite=perms)
             await ctx.reply(f'{ctx.author.mention}, '
@@ -263,13 +232,14 @@ class Projects(commands.Cog, description='Команды девлогов'):
             await ctx.reply(f'{ctx.author.mention}, вы не создатель канала!', delete_after=3)
             await ctx.message.delete()
 
+
     @commands.command(name='pin',
                       help='pin ответом на сообщение '
                            '| Прикрепляет сообщение',
                       brief='Прикрепляет сообщение')
     async def pin_message(self, ctx: discord.ext.commands.Context):
-        project_data = get_data_for_projects(ctx)
-        if ctx.author.id == project_data[1]:
+        devlog = sql_worker.get_devlog_by_channel(ctx.channel.id)
+        if ctx.author.id == devlog.devlog_id:
             if ctx.message.reference:
                 original = await ctx.fetch_message(id=ctx.message.reference.message_id)
                 await original.pin()
@@ -283,8 +253,8 @@ class Projects(commands.Cog, description='Команды девлогов'):
                            '| Открепляет сообщение',
                       brief='Открепляет сообщение')
     async def unpin_message(self, ctx: discord.ext.commands.Context):
-        project_data = get_data_for_projects(ctx)
-        if ctx.author.id == project_data[1]:
+        devlog = sql_worker.get_devlog_by_channel(ctx.channel.id)
+        if ctx.author.id == devlog.devlog_id:
             if ctx.message.reference:
                 original = await ctx.fetch_message(id=ctx.message.reference.message_id)
                 await original.unpin()

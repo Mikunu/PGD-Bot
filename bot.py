@@ -2,64 +2,21 @@ import contextlib
 import datetime
 import discord
 import os
-import sqlite3
-
-import requests
+from db_worker import SQLWorker
+from trello import TrelloApi
 from discord.ext import commands
 
 
 intents = discord.Intents.default()
 intents.members = True
-client = commands.Bot(command_prefix=os.environ['PREFIX'], intents=intents)
+activity = discord.Activity(name='Азимова', type=discord.ActivityType.listening)
+client = commands.Bot(command_prefix=os.environ['PREFIX'], intents=intents, activity=activity)
 
-conn = sqlite3.connect("pgd.db")
-cursor = conn.cursor()
-
+sql_worker = SQLWorker()
+#trello_client = TrelloApi(apikey=)
 for filename in os.listdir('./cogs'):
     if filename.endswith('.py'):
         client.load_extension(f'cogs.{filename[:-3]}')
-
-
-@client.command(brief='Загружает модуль')
-@commands.has_role('Админ')
-async def load(ctx, extension):
-    client.load_extension(f'cogs.{extension}')
-
-
-@client.command(brief='Выгружает модуль')
-@commands.has_role('Админ')
-async def unload(ctx, extension):
-    client.unload_extension(f'cogs.{extension}')
-
-
-@client.command(brief='Перезагружает модуль')
-@commands.has_role('Админ')
-async def reload(ctx, extension):
-    client.unload_extension(f'cogs.{extension}')
-    client.load_extension(f'cogs.{extension}')
-
-
-@client.command()
-async def bug(ctx, *, arg):
-    url = "https://api.trello.com/1/checklists/61ad2842683b701839df0e61/checkItems"
-    headers = {
-        "Accept": "application/json"
-    }
-    author = f'{ctx.author.name}#{ctx.author.discriminator}'
-    new_check = f'[{author}] {arg}'
-    querystring = {"key": os.environ['TRELLO_KEY'],
-                   "token": os.environ['TRELLO_TOKEN'],
-                   "name": new_check}
-    mikunu: discord.User = client.get_user(302734324648902657)
-
-    message_link = f'https://discord.com/channels/{ctx.guild.id}/{ctx.channel.id}/{ctx.message.id}'
-    mikunu_msg = f'New bug-report:\nAuthor: {author}\n' \
-                 f'In channel: {ctx.channel}\nMessage link: {message_link}\n{arg}'
-    response = requests.post(url, headers=headers, params=querystring)
-    await ctx.reply('Баг-репорт отравлен')
-    if response.status_code != 200:
-        mikunu_msg += f'\nResponse error: {response}'
-    await mikunu.send(mikunu_msg)
 
 
 class HelpEmbed(discord.Embed):  # Our embed with some preset attributes to avoid setting it multiple times
@@ -158,4 +115,4 @@ class MyHelp(commands.HelpCommand):
 
 client.help_command = MyHelp()
 
-client.run(os.environ['TOKEN'])
+client.run(os.environ['DISCORD_BOT_TOKEN'])

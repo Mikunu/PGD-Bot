@@ -12,7 +12,7 @@ class Fun(commands.Cog):
                       help='uni | Решает, ехать на пары или нет',
                       brief='Решает, ехать на пары или нет')
     async def uni(self, ctx: discord.ext.commands.Context):
-        if random.randint(1, 20) > 16:
+        if random.randint(1, 20) > 12:
             await ctx.reply('Отдохни, сегодня тяжелый день, в вузе явно делать нечего')
         else:
             file = discord.File("nofate.jpg")
