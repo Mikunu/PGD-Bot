@@ -34,13 +34,17 @@ class Author(Base):
 class SQLWorker:
 
     def __init__(self):
-        raw_db_url = subprocess.run(
-            ["heroku", "config:get", "DATABASE_URL", "--app", 'pgd-bot'],
-            shell=True, capture_output=True).stdout
-        # Convert binary string to a regular string & remove the newline character
-        db_url = raw_db_url.decode("utf-8")[11:-1]
-        # Convert "postgres://<db_address>"  --> "postgresql+psycopg2://<db_address>" needed for SQLAlchemy
-        final_db_url = "postgresql+psycopg2://" + db_url
+        final_db_url = None
+        if os.environ['DATABASE_URL'] is not None:
+            final_db_url = "postgresql+psycopg2://" + os.environ['DATABASE_URL'][11:]
+        else:
+            raw_db_url = subprocess.run(
+                ["heroku", "config:get", "DATABASE_URL", "--app", 'pgd-bot'],
+                shell=True, capture_output=True).stdout
+            # Convert binary string to a regular string & remove the newline character
+            db_url = raw_db_url.decode("utf-8")[11:-1]
+            # Convert "postgres://<db_address>"  --> "postgresql+psycopg2://<db_address>" needed for SQLAlchemy
+            final_db_url = "postgresql+psycopg2://" + db_url
 
         # Create SQLAlchemy engine
         self.engine = create_engine(final_db_url, connect_args={'sslmode': 'require'})
