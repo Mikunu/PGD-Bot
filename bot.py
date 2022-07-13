@@ -3,7 +3,6 @@ import datetime
 import discord
 import os
 from db_worker import SQLWorker
-from trello import TrelloApi
 from discord.ext import commands
 
 
@@ -13,7 +12,6 @@ activity = discord.Activity(name='Азимова', type=discord.ActivityType.lis
 client = commands.Bot(command_prefix=os.environ['PREFIX'], intents=intents, activity=activity)
 
 sql_worker = SQLWorker()
-#trello_client = TrelloApi(apikey=)
 for filename in os.listdir('./cogs'):
     if filename.endswith('.py'):
         client.load_extension(f'cogs.{filename[:-3]}')

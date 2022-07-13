@@ -33,7 +33,8 @@ class Voice(commands.Cog, description='Команды для голосовог�
         else:
             voice = await channel.connect()
 
-        synthesis_client = synthesis.SynthesisClient('saitovrusland@gmail.com', 11236, 'pXcaO3?a7o')
+        synthesis_client = synthesis.SynthesisClient(
+            os.environ['SPEECHPRO_EMAIL'], os.environ['SPEECHPRO_DOMAIN_ID'], os.environ['SPEECHPRO_PASSWORD'])
         audio = synthesis_client.synthesize(synthesis.enums.Voice.DASHA, synthesis.enums.PlaybackProfile.SPEAKER, arg)
         with open('output.wav', 'wb') as f:
             f.write(audio)
