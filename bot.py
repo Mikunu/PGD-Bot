@@ -4,7 +4,7 @@ import discord
 import os
 from db_worker import SQLWorker
 from discord.ext import commands
-
+from speechpro.cloud.speech import synthesis
 
 intents = discord.Intents.default()
 intents.members = True
@@ -114,3 +114,5 @@ class MyHelp(commands.HelpCommand):
 client.help_command = MyHelp()
 
 client.run(os.environ['DISCORD_BOT_TOKEN'])
+synthesis_client = synthesis.SynthesisClient(
+    os.environ['SPEECHPRO_EMAIL'], os.environ['SPEECHPRO_DOMAIN_ID'], os.environ['SPEECHPRO_PASSWORD'])

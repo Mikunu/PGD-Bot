@@ -5,7 +5,7 @@ from discord.ext import commands
 import os
 from speechpro.cloud.speech import synthesis
 from extensions.useful_funtions import can_use_tts
-from bot import client
+from bot import client, synthesis_client
 
 
 class Voice(commands.Cog, description='Команды для голосового чата'):
@@ -33,12 +33,10 @@ class Voice(commands.Cog, description='Команды для голосовог�
         else:
             voice = await channel.connect()
 
-        synthesis_client = synthesis.SynthesisClient(
-            os.environ['SPEECHPRO_EMAIL'], os.environ['SPEECHPRO_DOMAIN_ID'], os.environ['SPEECHPRO_PASSWORD'])
         audio = synthesis_client.synthesize(synthesis.enums.Voice.DASHA, synthesis.enums.PlaybackProfile.SPEAKER, arg)
         with open('output.wav', 'wb') as f:
             f.write(audio)
-        source = discord.FFmpegPCMAudio(executable=r'C:\ffmpeg\bin\ffmpeg.exe', source='output.wav')
+        source = discord.FFmpegPCMAudio(executable=os.environ['PATH_TO_FFMPEG'], source='output.wav')
         player = voice.play(source)
 
     @voice.command(aliases=['c', 'j'])

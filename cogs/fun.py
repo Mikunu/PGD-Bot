@@ -15,7 +15,7 @@ class Fun(commands.Cog):
         if random.randint(1, 20) > 12:
             await ctx.reply('Отдохни, сегодня тяжелый день, в вузе явно делать нечего')
         else:
-            file = discord.File("nofate.jpg")
+            file = discord.File("resources/nofate.jpg")
             await ctx.reply('Не время отдыхать, вуз ждёт!', file=file)
 
     @commands.command(name='pgd')

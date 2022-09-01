@@ -36,7 +36,7 @@ class Roles(commands.Cog, description='Команды для управлени�
         parent_role: discord.Role = ctx.guild.get_role(parent_role_id)
         new_role: discord.Role = await ctx.guild.create_role(name=role_name, colour=parent_role.colour, mentionable=True)
         await new_role.edit(position=parent_role.position - 1)
-        await ctx.reply(f'Роль **{new_role.mention}** в категории **{parent_role.name}** создана')
+        await ctx.reply(f'Роль {new_role.mention} в категории {parent_role.name} создана')
 
 
 def setup(client):
