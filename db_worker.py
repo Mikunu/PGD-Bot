@@ -35,7 +35,7 @@ class SQLWorker:
 
     def __init__(self):
         final_db_url = None
-        if os.environ['DATABASE_URL'] is not None:
+        if 'DATABASE_URL' in os.environ:
             final_db_url = "postgresql+psycopg2://" + os.environ['DATABASE_URL'][11:]
         else:
             raw_db_url = subprocess.run(

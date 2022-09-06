@@ -1,16 +1,18 @@
-import asyncio
-
 import discord
 from discord.ext import commands
 import os
-from speechpro.cloud.speech import synthesis
 from extensions.useful_funtions import can_use_tts
-from bot import client, synthesis_client
-
+from speechpro.cloud.speech import synthesis
+from bot import client
 
 class Voice(commands.Cog, description='Команды для голосового чата'):
 
-    SESSION_API = None
+    def __init__(self, client):
+        self.client = client
+        # SESSION_API = None
+        self.synth_client = synthesis.SynthesisClient(
+            os.environ['SPEECHPRO_EMAIL'], os.environ['SPEECHPRO_DOMAIN_ID'], os.environ['SPEECHPRO_PASSWORD'])
+        self.synth_profile = {'voice': synthesis.enums.Voice.DASHA, 'quality': synthesis.enums.PlaybackProfile.SPEAKER}
 
     @commands.group(aliases=['v'], enable=False)
     @commands.check(can_use_tts)
@@ -33,7 +35,7 @@ class Voice(commands.Cog, description='Команды для голосовог�
         else:
             voice = await channel.connect()
 
-        audio = synthesis_client.synthesize(synthesis.enums.Voice.DASHA, synthesis.enums.PlaybackProfile.SPEAKER, arg)
+        audio = self.synth_client.synthesize(self.synth_profile.get('voice'), self.synth_profile.get('quality'), arg)
         with open('output.wav', 'wb') as f:
             f.write(audio)
         source = discord.FFmpegPCMAudio(executable=os.environ['PATH_TO_FFMPEG'], source='output.wav')

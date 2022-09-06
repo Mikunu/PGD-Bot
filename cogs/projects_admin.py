@@ -10,7 +10,7 @@ class ProjectsAdmin(commands.Cog, description='Админские команды
     def __init__(self, client):
         self.client = client
 
-    @commands.command()
+    @commands.group()
     @commands.has_any_role('Админ', 'Модератор')
     @commands.check(is_in_devlogs)
     async def devlog(self, ctx: discord.ext.commands.Context):
@@ -20,7 +20,7 @@ class ProjectsAdmin(commands.Cog, description='Админские команды
     @devlog.command(name='create',
                     help='create @user | Создаёт канал разработки для пользователя',
                     brief='Создаёт канал разработки для пользователя')
-    async def create_project(self, ctx: discord.ext.commands.Context, member: discord.Member):
+    async def create(self, ctx: discord.ext.commands.Context, member: discord.Member):
         if member is None:
             return
 
@@ -58,11 +58,11 @@ class ProjectsAdmin(commands.Cog, description='Админские команды
         for text in welcome_txt.split('\n\n'):
             await channel.send(text)
 
-    @commands.command(name='delete-project',
+    @devlog.command(name='delete-project',
                       help='delete-project | Удаляет канал разработки, в котором команда написана',
                       brief='Удаляет канал разработки в котором команда написана')
     @commands.has_any_role('Админ', 'Модератор')
-    async def delete_project(self, ctx: discord.ext.commands.Context, silent: str=''):
+    async def delete_devlog(self, ctx: discord.ext.commands.Context, silent: str=''):
         devlog = sql_worker.get_devlog_by_channel(ctx.channel.id)
         if devlog is None:
             await ctx.reply(f'Данного проекта нет в базе данных', delete_after=5)
@@ -76,7 +76,7 @@ class ProjectsAdmin(commands.Cog, description='Админские команды
             await discord.utils.get(ctx.guild.channels, id=759775534136819722).send(message)  # аудит
         await client.get_channel(devlog.channel_id).delete()
 
-    @commands.command(name='check-member-projects',
+    @devlog.command(name='check-member-projects',
                       help='check-member-projects @user | Вывести проект пользователя',
                       brief='Вывести проект пользователя')
     @commands.has_any_role('Админ', 'Модератор')
@@ -97,7 +97,7 @@ class ProjectsAdmin(commands.Cog, description='Админские команды
         else:
             await ctx.reply(f'{member.mention} не имеет проекта')
 
-    @commands.command(name='assign',
+    @devlog.command(name='assign',
                       help='assign @user | Присваивает канал разработки пользователю',
                       brief='Присваивает канал разработки пользователю',
                       enabled=False)

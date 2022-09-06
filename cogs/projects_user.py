@@ -3,7 +3,7 @@ import datetime
 import discord
 from discord.ext import commands
 from bot import sql_worker, client
-from extensions.useful_funtions import grant_channel_roles
+from extensions.useful_funtions import grant_channel_roles, is_in_devlogs
 
 
 class ProjectsUser(commands.Cog, description='Команды девлогов'):
@@ -11,10 +11,16 @@ class ProjectsUser(commands.Cog, description='Команды девлогов'):
     def __init__(self, client):
         self.client = client
 
-    @commands.command(name='rename-project',
-                      help='rename-project название или rename-project "название с пробелами" '
-                           '| Переименовывает канал разработки',
-                      brief='Переименовывает канал')
+    @commands.group()
+    @commands.check(is_in_devlogs)
+    async def dev(self, ctx: discord.ext.commands.Context):
+        if ctx.invoked_subcommand is None:
+            await ctx.reply('Слишком мало аргументов')
+
+    @dev.command(name='rename-project',
+                 help='rename-project название или rename-project "название с пробелами" '
+                      '| Переименовывает канал разработки',
+                 brief='Переименовывает канал')
     async def rename_project(self, ctx: discord.ext.commands.Context, new_name: str):
         devlog = sql_worker.get_devlog_by_channel(ctx.channel.id)
         if ctx.author.id == devlog.devlog_id:
@@ -24,10 +30,10 @@ class ProjectsUser(commands.Cog, description='Команды девлогов'):
             await ctx.reply(f'{ctx.author.mention}, вы не создатель канала!', delete_after=7)
         await ctx.message.delete()
 
-    @commands.command(name='update-topic', rest_is_raw=True,
-                      help='update-topic описание или update-topic "описание с пробелами" '
-                           '| Изменить описание канала разработки',
-                      brief='Изменить описание канала разработки')
+    @dev.command(name='update-topic', rest_is_raw=True,
+                 help='update-topic описание или update-topic "описание с пробелами" '
+                      '| Изменить описание канала разработки',
+                 brief='Изменить описание канала разработки')
     async def update_topic(self, ctx: discord.ext.commands.Context, new_topic: str):
         devlog = sql_worker.get_devlog_by_channel(ctx.channel.id)
         if ctx.author.id == devlog.devlog_id:
@@ -38,9 +44,9 @@ class ProjectsUser(commands.Cog, description='Команды девлогов'):
             await ctx.reply(f'{ctx.author.mention}, вы не создатель канала!', delete_after=7)
             await ctx.message.delete()
 
-    @commands.command(name='archive',
-                      help='archive | Перенести канал разрабокти в архив',
-                      brief='Перенести канал разработки в архив')
+    @dev.command(name='archive',
+                 help='archive | Перенести канал разрабокти в архив',
+                 brief='Перенести канал разработки в архив')
     async def archivize(self, ctx: discord.ext.commands.Context):
         devlog = sql_worker.get_devlog_by_channel(ctx.channel.id)
         category = discord.utils.get(ctx.guild.channels, id=719540678673170524)
@@ -59,10 +65,10 @@ class ProjectsUser(commands.Cog, description='Команды девлогов'):
             await ctx.reply(f'{ctx.author.mention}, вы не создатель канала!', delete_after=3)
             await ctx.message.delete()
 
-    @commands.command(name='delete',
-                      help='delete ответом на сообщение или указать количество сообщений (до 99) '
-                           '| Удаляет сообщение(я)',
-                      brief='Удаляет сообщение(я)')
+    @dev.command(name='delete',
+                 help='delete ответом на сообщение или указать количество сообщений (до 99) '
+                      '| Удаляет сообщение(я)',
+                 brief='Удаляет сообщение(я)')
     async def delete_message(self, ctx: discord.ext.commands.Context, limit: int = None):
         devlog = sql_worker.get_devlog_by_channel(ctx.channel.id)
         if ctx.author.id == devlog.devlog_id:
@@ -88,7 +94,7 @@ class ProjectsUser(commands.Cog, description='Команды девлогов'):
             await ctx.reply(f'{ctx.author.mention}, вы не создатель канала!', delete_after=3)
             await ctx.message.delete()
 
-    @commands.command(name='projects-remove2fa')
+    @dev.command(name='projects-remove2fa')
     async def projects_remove2fa(self, ctx: discord.ext.commands.Context):
         devlog = sql_worker.get_devlog_by_channel(ctx.channel.id)
         if ctx.author.id == devlog.devlog_id:
@@ -99,7 +105,7 @@ class ProjectsUser(commands.Cog, description='Команды девлогов'):
             await ctx.reply(f'{ctx.author.mention}, вы не создатель канала!', delete_after=3)
             await ctx.message.delete()
 
-    @commands.command(name='projects-get2fa')
+    @dev.command(name='projects-get2fa')
     async def projects_get2fa(self, ctx: discord.ext.commands.Context):
         devlog = sql_worker.get_devlog_by_channel(ctx.channel.id)
         if ctx.author.id == devlog.devlog_id:
@@ -112,10 +118,10 @@ class ProjectsUser(commands.Cog, description='Команды девлогов'):
             await ctx.reply(f'{ctx.author.mention}, вы не создатель канала!', delete_after=3)
             await ctx.message.delete()
 
-    @commands.command(name='pin',
-                      help='pin ответом на сообщение '
-                           '| Прикрепляет сообщение',
-                      brief='Прикрепляет сообщение')
+    @dev.command(name='pin',
+                 help='pin ответом на сообщение '
+                      '| Прикрепляет сообщение',
+                 brief='Прикрепляет сообщение')
     async def pin_message(self, ctx: discord.ext.commands.Context):
         devlog = sql_worker.get_devlog_by_channel(ctx.channel.id)
         if ctx.author.id == devlog.devlog_id:
@@ -127,10 +133,10 @@ class ProjectsUser(commands.Cog, description='Команды девлогов'):
             await ctx.reply(f'{ctx.author.mention}, вы не создатель канала!', delete_after=3)
             await ctx.message.delete()
 
-    @commands.command(name='unpin',
-                      help='unpin ответом на сообщение '
-                           '| Открепляет сообщение',
-                      brief='Открепляет сообщение')
+    @dev.command(name='unpin',
+                 help='unpin ответом на сообщение '
+                      '| Открепляет сообщение',
+                 brief='Открепляет сообщение')
     async def unpin_message(self, ctx: discord.ext.commands.Context):
         devlog = sql_worker.get_devlog_by_channel(ctx.channel.id)
         if ctx.author.id == devlog.devlog_id:
