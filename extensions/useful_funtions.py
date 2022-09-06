@@ -18,7 +18,7 @@ def is_in_devlogs(ctx: discord.ext.commands.Context):
     return True if devlog_category.id == 715126363748827136 else False  # PGD Devlogs Category ID
 
 
-def check_if_user_has_projects(member: discord.Member):
+def check_if_user_has_projects(member: discord.Member) -> bool:
     user = sql_worker.get_devlog_by_user(user_id=member.id)
     if user is not None:
         return True
@@ -26,9 +26,22 @@ def check_if_user_has_projects(member: discord.Member):
         return False
 
 
+def check_if_space_in_category_exists(ctx: discord.ext.commands.Context):
+    """Check if place in devlogs' category exists.
+
+    :param ctx: command context
+
+    :return: bool: If exists
+    """
+    category: discord.CategoryChannel = ctx.guild.get_channel(715126363748827136)  # Devlog category id
+    if len(category.channels) <= 49:
+        return True
+    else:
+        return False
+
+
 def grant_channel_roles(member: discord.Member, channel: discord.TextChannel):
     perms = channel.overwrites_for(member)
-    perms.manage_channels = True
     perms.manage_emojis = True
     perms.manage_messages = True
     return perms

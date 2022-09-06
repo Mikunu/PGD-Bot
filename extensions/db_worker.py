@@ -3,7 +3,7 @@ import subprocess
 
 from sqlalchemy import create_engine, update
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy import Column, BIGINT, SMALLINT,BOOLEAN, TIMESTAMP
+from sqlalchemy import Column, BIGINT, SMALLINT, BOOLEAN, TIMESTAMP
 from sqlalchemy.orm import sessionmaker
 
 Base = declarative_base()
@@ -11,7 +11,6 @@ Base = declarative_base()
 
 class Devlog(Base):
     __tablename__ = 'devlogs'
-    devlog_id = Column(BIGINT, primary_key=True)
     channel_id = Column(BIGINT)
     user_id = Column(BIGINT)
     archived = Column(BOOLEAN)
@@ -34,7 +33,7 @@ class Author(Base):
 class SQLWorker:
 
     def __init__(self):
-        final_db_url = None
+        # final_db_url = None || MARKED FOR DELETION ||
         if 'DATABASE_URL' in os.environ:
             final_db_url = "postgresql+psycopg2://" + os.environ['DATABASE_URL'][11:]
         else:
@@ -51,7 +50,7 @@ class SQLWorker:
         session = sessionmaker(self.engine)
         self.session = session()
 
-# DEVLOGS ------------------------------------
+    # region Devlogs
     def add_devlog(self, channel_id, user_id):
         devlog = Devlog(channel_id=channel_id, user_id=user_id, archived=False)
         self.session.add(devlog)
@@ -94,9 +93,9 @@ class SQLWorker:
     def delete_devlog(self, devlog: Devlog):
         self.session.delete(devlog)
         self.session.commit()
-# DEVLOGS ------------------------------------
+    # endregion
 
-# AUTHORS ------------------------------------
+    # region Authors
     def add_author(self, user_id):
         author: Author = Author(user_id=user_id, devlogs_amount=1)
         self.session.add(author)
@@ -114,4 +113,4 @@ class SQLWorker:
         self.session.execute(update(Author).
                              where(author.user_id == author.user_id).
                              values(devlogs_amount=author.devlogs_amount))
-# AUTHORS ------------------------------------
+    # endregion

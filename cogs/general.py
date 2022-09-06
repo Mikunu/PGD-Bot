@@ -22,6 +22,6 @@ async def on_command_error(ctx, error):
     await ctx.message.delete()
     raise error
 
-    
+
 def setup(client):
     client.add_cog(General(client))
