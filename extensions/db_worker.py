@@ -33,6 +33,7 @@ class Author(Base):
 class SQLWorker:
 
     def __init__(self):
+        # todo: check if final_db_url var needed
         # final_db_url = None || MARKED FOR DELETION ||
         if 'DATABASE_URL' in os.environ:
             final_db_url = "postgresql+psycopg2://" + os.environ['DATABASE_URL'][11:]
@@ -51,37 +52,70 @@ class SQLWorker:
         self.session = session()
 
     # region Devlogs
-    def add_devlog(self, channel_id, user_id):
+    def add_devlog(self, channel_id: int, user_id: int) -> Devlog:
+        """
+        Add devlog to database.
+
+        :param channel_id: id of devlog channel for adding.
+        :param user_id: devlog's author.
+        :return: devlog object
+        """
         devlog = Devlog(channel_id=channel_id, user_id=user_id, archived=False)
         self.session.add(devlog)
         self.session.commit()
         return devlog
 
-    def get_devlog_by_user(self, user_id):
+    def get_devlog_by_user(self, user_id: int) -> Devlog:
+        """
+        Get devlog by user from database.
+
+        :param user_id: devlog's author's id
+        :return: devlog object
+        """
         devlogs = self.session.query(Devlog)
         for devlog in devlogs:
             if devlog.user_id == user_id:
                 return devlog
 
-    def get_devlog_by_channel(self, channel_id):
+    def get_devlog_by_channel(self, channel_id) -> Devlog:
+        """
+        Get devlog by channel from database.
+
+        :param channel_id: devlog's channel's id
+        :return: devlog object
+        """
         devlogs = self.session.query(Devlog)
         for devlog in devlogs:
             if devlog.channel_id == channel_id:
                 return devlog
 
-    def update_devlog(self, channel_id, data):
+    def update_devlog(self, channel_id, data) -> Devlog:
+        """
+        Update devlog with data.
+
+        :param channel_id: devlog's channel's id.
+        :param data: dictionary (devlog's author's id, archived status or archivied date).
+        :return: devlog object
+        """
         devlog: Devlog = self.get_devlog_by_channel(channel_id)
         devlog.user_id = data['user_id']
         devlog.archived = data['archived']
         devlog.archived_date = data['archived_date']
         self.session.execute(update(Devlog).
-                             where(Devlog.channel_id == devlog.channel_id).
-                             values(
+            where(Devlog.channel_id == devlog.channel_id).
+            values(
             user_id=devlog.user_id, archived=devlog.archived, archived_date=devlog.archived_date))
         self.session.commit()
         return devlog
 
-    def devlog_change_owner(self, channel_id, user_id):
+    def devlog_change_owner(self, channel_id, user_id) -> Devlog:
+        """
+        Change devlog's owner.
+
+        :param channel_id: devlog's channel's id.
+        :param user_id: new owner id.
+        :return: devlog object
+        """
         devlog: Devlog = self.get_devlog_by_channel(channel_id)
         devlog.user_id = user_id
         self.session.execute(update(Devlog).
@@ -91,12 +125,25 @@ class SQLWorker:
         return devlog
 
     def delete_devlog(self, devlog: Devlog):
+        """
+        Delete devlog from database.
+
+        :param devlog: devlog object.
+        :return:
+        """
         self.session.delete(devlog)
         self.session.commit()
     # endregion
 
     # region Authors
+    # fixme: MARKED FOR REWRITE OR DELETION. NEEDS DEVLOG OBJECT
     def add_author(self, user_id):
+        """
+        Add author for existing devlog channel without author.
+
+        :param user_id:
+        :return:
+        """
         author: Author = Author(user_id=user_id, devlogs_amount=1)
         self.session.add(author)
         self.session.commit()

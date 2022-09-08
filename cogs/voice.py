@@ -40,6 +40,7 @@ class Voice(commands.Cog, description='Команды для голосовог�
         with open('resources/output.wav', 'wb') as f:
             f.write(audio)
         source = discord.FFmpegPCMAudio(executable=os.environ['PATH_TO_FFMPEG'], source='output.wav')
+        # todo: check if player var needed
         player = voice.play(source)
 
     @voice.command(aliases=['c', 'j'])
